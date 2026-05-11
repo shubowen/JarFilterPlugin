@@ -16,7 +16,6 @@
 
 package cn.nekocode.jarfilter
 
-import com.google.common.io.Files
 import groovy.json.JsonOutput
 import org.gradle.api.DefaultTask
 import org.gradle.api.NamedDomainObjectContainer
@@ -44,7 +43,7 @@ open class UpdateConfigTask: DefaultTask() {
         }
 
         if (needUpdate) {
-            Files.createParentDirs(configFile)
+            configFile.parentFile.mkdirs()
             configFile.writeText(JsonOutput.toJson(configs.toSet()))
         }
     }

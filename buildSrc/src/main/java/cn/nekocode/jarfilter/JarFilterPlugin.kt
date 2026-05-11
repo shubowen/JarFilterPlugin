@@ -16,10 +16,13 @@
 
 package cn.nekocode.jarfilter
 
-import com.android.build.gradle.BaseExtension
-import com.android.build.gradle.internal.dsl.BaseAppModuleExtension
+import com.android.build.api.artifact.ScopedArtifact
+import com.android.build.api.variant.ApplicationAndroidComponentsExtension
+import com.android.build.api.variant.ScopedArtifacts
+import com.android.build.gradle.AppPlugin
 import org.gradle.api.Plugin
 import org.gradle.api.Project
+import org.gradle.api.artifacts.component.ModuleComponentIdentifier
 
 /**
  * Debug: ./gradlew :e:build -Dorg.gradle.daemon=false -Dorg.gradle.debug=true
@@ -38,19 +41,55 @@ class JarFilterPlugin : Plugin<Project> {
         }
         project.extensions.add(CONFIG_KEYWORD, jarFilters)
 
-        val android = project.extensions.findByName("android") as BaseExtension?
-        if (android != null && android is BaseAppModuleExtension) {
-            // Register transform
-            android.registerTransform(JarFilterTransform(project))
+        var appliedToAndroidApplication = false
+        project.plugins.withType(AppPlugin::class.java) {
+            appliedToAndroidApplication = true
 
-            // Create a task to save config to json file before build
-            val updateTask = project.tasks.create(
-                    UPDATE_CONFIG_TASK_NAME, UpdateConfigTask::class.java)
-            project.tasks.getByName("preBuild").dependsOn(updateTask)
+            // Create a task to save config to json file before build.
+            val updateTask = project.tasks.register(UPDATE_CONFIG_TASK_NAME, UpdateConfigTask::class.java)
 
-        } else {
+            val androidComponents = project.extensions.getByType(ApplicationAndroidComponentsExtension::class.java)
+            androidComponents.onVariants { variant ->
+                variant.lifecycleTasks.registerPreBuild(updateTask)
+
+                val filterTask = project.tasks.register("${variant.name}JarFilter", JarFilterTransform::class.java) { task ->
+                    task.dependsOn(updateTask)
+                    task.configFile.set(project.layout.buildDirectory.file(UpdateConfigTask.CONFIG_FILE_NAME))
+                    task.artifactNames.set(variant.runtimeConfiguration.incoming.artifacts.resolvedArtifacts.map { artifacts ->
+                        artifacts.map { artifact ->
+                            val file = artifact.file
+                            val componentIdentifier = artifact.id.componentIdentifier
+                            val displayName = if (componentIdentifier is ModuleComponentIdentifier) {
+                                "${componentIdentifier.group}:${componentIdentifier.module}:${componentIdentifier.version}"
+                            } else {
+                                componentIdentifier.displayName
+                            }
+                            file.absolutePath to displayName
+                        }.toMap()
+                    })
+                }
+
+                variant.artifacts.forScope(ScopedArtifacts.Scope.ALL)
+                        .use(filterTask)
+                        .toTransform(
+                                ScopedArtifact.CLASSES,
+                                JarFilterTransform::allJars,
+                                JarFilterTransform::allDirectories,
+                                JarFilterTransform::output
+                        )
+            }
+        }
+
+        if (project.plugins.hasPlugin("com.android.library") || project.plugins.hasPlugin("java-library")) {
             throw UnsupportedOperationException(
                     "The JarFilterPlugin can only be used in android application module.")
+        }
+
+        project.afterEvaluate {
+            if (!appliedToAndroidApplication) {
+                throw UnsupportedOperationException(
+                        "The JarFilterPlugin can only be used in android application module.")
+            }
         }
     }
 }
