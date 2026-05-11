@@ -16,86 +16,140 @@
 
 package cn.nekocode.jarfilter
 
-import com.android.build.api.transform.*
-import com.android.build.gradle.internal.pipeline.TransformManager
-import com.android.utils.FileUtils
-import com.google.common.collect.ImmutableSet
-import org.gradle.api.Project
+import org.gradle.api.DefaultTask
+import org.gradle.api.file.Directory
+import org.gradle.api.file.RegularFile
+import org.gradle.api.file.RegularFileProperty
+import org.gradle.api.provider.ListProperty
+import org.gradle.api.provider.MapProperty
+import org.gradle.api.tasks.Input
+import org.gradle.api.tasks.InputFile
+import org.gradle.api.tasks.InputFiles
+import org.gradle.api.tasks.OutputFile
+import org.gradle.api.tasks.PathSensitive
+import org.gradle.api.tasks.PathSensitivity
+import org.gradle.api.tasks.TaskAction
+import java.io.BufferedOutputStream
 import java.io.File
+import java.io.FileOutputStream
+import java.io.InputStream
+import java.util.jar.JarEntry
+import java.util.jar.JarFile
+import java.util.jar.JarOutputStream
 import java.util.regex.Pattern
 
 /**
+ * Replaces the removed AGP Transform API with the Scoped Artifacts API.
+ *
+ * AGP provides all classes in the selected scope as jars and directories. This task writes them
+ * back into a single jar after applying jarFilters to matched external dependency jars.
+ *
  * @author nekocode (nekocode.cn@gmail.com)
  */
-class JarFilterTransform(private val project: Project) : Transform() {
-    private val configFile = File(project.buildDir, UpdateConfigTask.CONFIG_FILE_NAME)
+abstract class JarFilterTransform : DefaultTask() {
+    @get:InputFiles
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val allJars: ListProperty<RegularFile>
 
-    override fun getName() = "jarFilter"
+    @get:InputFiles
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val allDirectories: ListProperty<Directory>
 
-    override fun getInputTypes(): Set<QualifiedContent.ContentType> = TransformManager.CONTENT_CLASS
+    @get:InputFile
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val configFile: RegularFileProperty
 
-    override fun isIncremental() = true
+    @get:Input
+    abstract val artifactNames: MapProperty<String, String>
 
-    override fun getScopes(): MutableSet<in QualifiedContent.Scope> = ImmutableSet.of(QualifiedContent.Scope.EXTERNAL_LIBRARIES)
+    @get:OutputFile
+    abstract val output: RegularFileProperty
 
-    override fun getSecondaryFiles(): MutableCollection<SecondaryFile> = ImmutableSet.of(SecondaryFile.nonIncremental(project.files(configFile)))
-
-    override fun transform(invocation: TransformInvocation) {
-        val outputProvider = invocation.outputProvider!!
-
-        val configs = Utils.getConfigsFromFile(configFile) ?: return
+    @TaskAction
+    fun filter() {
+        val configs = Utils.getConfigsFromFile(configFile.get().asFile).orEmpty()
         val filters = configs.map {
             Pattern.compile(it.name) to JarFilter(it)
-        }.toList()
-
-        if (!invocation.isIncremental) {
-            outputProvider.deleteAll()
         }
+        val jarsToArtifactNames = artifactNames.get()
+        val writtenEntries = LinkedHashSet<String>()
+        val outputFile = output.get().asFile
+        outputFile.parentFile.mkdirs()
 
-        invocation.inputs.map { it.jarInputs }.flatten().forEach { jarInput ->
-            if (!invocation.isIncremental) {
-                copyAndFilterJar(outputProvider, jarInput, filters)
-                return@forEach
+        JarOutputStream(BufferedOutputStream(FileOutputStream(outputFile))).use { jarOutput ->
+            allJars.get().forEach { regularFile ->
+                val jarFile = regularFile.asFile
+                val filter = findFilter(jarFile, jarsToArtifactNames, filters)
+                copyJarEntries(jarFile, jarOutput, filter, writtenEntries)
             }
 
-            when (jarInput.status) {
-                Status.NOTCHANGED, null -> {
+            allDirectories.get().forEach { directory ->
+                val rootDir = directory.asFile
+                rootDir.walkTopDown()
+                        .filter { it.isFile }
+                        .forEach { file ->
+                            val relativePath = rootDir.toURI()
+                                    .relativize(file.toURI())
+                                    .path
+                                    .replace(File.separatorChar, '/')
+                            file.inputStream().use { input ->
+                                jarOutput.writeEntry(relativePath, input, writtenEntries)
+                            }
+                        }
+            }
+        }
+    }
+
+    private fun findFilter(
+            jarFile: File,
+            jarsToArtifactNames: Map<String, String>,
+            jarFilters: List<Pair<Pattern, JarFilter>>): JarFilter? {
+
+        val candidateNames = listOfNotNull(
+                jarsToArtifactNames[jarFile.absolutePath],
+                jarFile.name,
+                jarFile.absolutePath
+        )
+
+        return jarFilters.firstOrNull { (pattern, _) ->
+            candidateNames.any { pattern.matcher(it).matches() }
+        }?.second
+    }
+
+    private fun copyJarEntries(
+            sourceJar: File,
+            jarOutput: JarOutputStream,
+            filter: JarFilter?,
+            writtenEntries: MutableSet<String>) {
+
+        if (!sourceJar.exists()) {
+            return
+        }
+
+        JarFile(sourceJar).use { jarFile ->
+            jarFile.entries().asSequence().forEach { entry ->
+                if (entry.isDirectory || filter?.test(entry.name) == false) {
+                    return@forEach
                 }
 
-                Status.ADDED, Status.CHANGED -> {
-                    copyAndFilterJar(outputProvider, jarInput, filters)
-                }
-
-                Status.REMOVED -> {
-                    val outJarFile = outputProvider.getContentLocation(
-                            jarInput.name,
-                            jarInput.contentTypes,
-                            jarInput.scopes,
-                            Format.JAR
-                    )
-                    FileUtils.deleteIfExists(outJarFile)
+                jarFile.getInputStream(entry).use { input ->
+                    jarOutput.writeEntry(entry.name, input, writtenEntries)
                 }
             }
         }
     }
 
-    private fun copyAndFilterJar(
-            outputProvider: TransformOutputProvider,
-            jarInput: JarInput,
-            jarFilters: List<Pair<Pattern, JarFilter>>) {
+    private fun JarOutputStream.writeEntry(
+            name: String,
+            inputStream: InputStream,
+            writtenEntries: MutableSet<String>) {
 
-        val outJarFile = outputProvider.getContentLocation(
-                jarInput.name,
-                jarInput.contentTypes,
-                jarInput.scopes,
-                Format.JAR
-        )
+        if (!writtenEntries.add(name)) {
+            return
+        }
 
-        val filter = jarFilters.firstOrNull {
-            val pattern = it.first
-            pattern.matcher(jarInput.name).matches()
-        }?.second
-
-        Utils.copyAndFilterJar(jarInput.file, outJarFile, filter)
+        putNextEntry(JarEntry(name))
+        inputStream.copyTo(this)
+        closeEntry()
     }
 }

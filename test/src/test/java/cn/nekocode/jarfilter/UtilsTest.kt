@@ -97,7 +97,7 @@ class UtilsTest {
         } catch (e: Exception) {
             e
         }
-        assertTrue { e is TypeCastException }
+        assertTrue { e is NullPointerException || e is ClassCastException }
 
         configs = Utils.getConfigsFromBytes("""
             [

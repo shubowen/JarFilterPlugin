@@ -41,3 +41,14 @@ jarFilters {
     }
 }
 ```
+## Build verification
+
+This project is verified against Android Gradle Plugin `9.2.1` with a complete Android build environment in GitHub Actions. The workflow provisions JDK 17, the Android SDK, API 36, Build Tools 36.0.0, and then runs:
+
+```bash
+./gradlew --version
+./gradlew --no-daemon :test:test --stacktrace
+./gradlew --no-daemon :example:assembleDebug --stacktrace
+```
+
+You can also trigger the same check manually from the `AGP 9 Compile Verification` workflow.

@@ -16,7 +16,6 @@
 
 package cn.nekocode.jarfilter
 
-import com.android.utils.FileUtils
 import groovy.json.JsonSlurper
 import java.io.File
 import java.io.FileInputStream
@@ -68,8 +67,10 @@ object Utils {
             return
         }
 
+        outJarFile.parentFile?.mkdirs()
+
         if (filter == null) {
-            FileUtils.copyFile(inJarFile, outJarFile)
+            inJarFile.copyTo(outJarFile, overwrite = true)
             return
         }
 
