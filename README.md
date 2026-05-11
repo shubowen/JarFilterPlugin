@@ -1,28 +1,34 @@
-# README
-[![Build Status](https://travis-ci.com/nekocode/JarFilterPlugin.svg?branch=master)](https://travis-ci.com/nekocode/JarFilterPlugin) [![codecov](https://codecov.io/gh/nekocode/JarFilterPlugin/branch/master/graph/badge.svg)](https://codecov.io/gh/nekocode/JarFilterPlugin)
+# JarFilterPlugin
 
-This plugin can filter files (such as class files) inside a jar. This is very useful when you want to modify some classes in a third-party library but do not want to download and import all of its source code. Just copy the source files you want to modify into your project. And then use this plugin to remove the corresponding class in the jar. Finally, the build tool will package the compiled class of your copied source into the archive.
+[中文文档](README.zh-CN.md)
 
-You can see the [example](example) to learn how to use it. In addition, this plugin supports incremental work. So its performance is good.
+[![AGP 9 Compile Verification](https://github.com/shubowen/JarFilterPlugin/actions/workflows/agp-9-compile.yml/badge.svg)](https://github.com/shubowen/JarFilterPlugin/actions/workflows/agp-9-compile.yml)
 
-## Intergation
+JarFilterPlugin filters files, such as `.class` files, from dependency jars
+before Android builds package them into DEX archives. This is useful when you
+need to replace a small number of classes from a third-party dependency without
+vendoring the whole dependency source tree.
 
-Replace the `${last-version}` in below code to number [![Release](https://jitpack.io/v/nekocode/JarFilterPlugin.svg)](https://jitpack.io/#nekocode/JarFilterPlugin) .
+See the [example](example) module for a complete Android application setup. The
+plugin id is `jar-filter`.
+
+## Integration
 
 ```gradle
 buildscript {
     repositories {
-        maven { url "https://jitpack.io" }
+        google()
+        mavenCentral()
     }
     dependencies {
-        classpath "com.github.nekocode:JarFilterPlugin:${lastest-verion}"
+        classpath "io.github.shubowen:JarFilterPlugin:2.5.0"
     }
 }
 ```
 
 Apply and configure the plugin:
 
-```gralde
+```gradle
 apply plugin: "jar-filter"
 
 jarFilters {
@@ -52,3 +58,45 @@ This project is verified against Android Gradle Plugin `9.2.1` with a complete A
 ```
 
 You can also trigger the same check manually from the `AGP 9 Compile Verification` workflow.
+
+## Publishing to Maven Central
+
+The Maven Central publication is configured for:
+
+```text
+io.github.shubowen:JarFilterPlugin:2.5.0-SNAPSHOT
+```
+
+Before publishing, create and verify the `io.github.shubowen` namespace in the
+Central Portal, then put the generated user token and signing key in
+`~/.gradle/gradle.properties` or equivalent `ORG_GRADLE_PROJECT_*` environment
+variables:
+
+```properties
+mavenCentralUsername=...
+mavenCentralPassword=...
+signingInMemoryKeyFile=/path/to/signing-private.asc
+signingInMemoryKeyPassword=...
+```
+
+The local publishing configuration used on this machine is stored at:
+
+```text
+~/.gradle/gradle.properties
+```
+
+Do not commit this file. It contains the Maven Central token, signing password,
+and local signing configuration.
+
+Use a snapshot version for validation:
+
+```bash
+./gradlew :buildSrc:publishToMavenCentral
+```
+
+Use an explicit release version when publishing an immutable Maven Central
+release:
+
+```bash
+./gradlew :buildSrc:publishAndReleaseToMavenCentral -PVERSION_NAME=2.5.0
+```

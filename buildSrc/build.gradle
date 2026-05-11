@@ -18,9 +18,11 @@ buildscript {
     repositories {
         google()
         mavenCentral()
+        gradlePluginPortal()
     }
     dependencies {
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:2.3.21"
+        classpath "com.vanniktech.maven.publish:com.vanniktech.maven.publish.gradle.plugin:0.36.0"
     }
 }
 
@@ -30,6 +32,8 @@ repositories {
 }
 
 apply plugin: "org.jetbrains.kotlin.jvm"
+apply plugin: "signing"
+apply plugin: "com.vanniktech.maven.publish"
 
 java {
     sourceCompatibility = JavaVersion.VERSION_17
@@ -42,11 +46,16 @@ tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
     }
 }
 
-base {
-    archivesName = "JarFilterPlugin"
-}
+def publishedGroup = providers.gradleProperty("GROUP").orElse("io.github.shubowen")
+def publishedArtifactId = providers.gradleProperty("POM_ARTIFACT_ID").orElse("JarFilterPlugin")
+def publishedVersion = providers.gradleProperty("VERSION_NAME").orElse("2.5.0-SNAPSHOT")
 
-group = "com.github.nekocode"
+group = publishedGroup.get()
+version = publishedVersion.get()
+
+base {
+    archivesName = publishedArtifactId.get()
+}
 
 dependencies {
     implementation gradleApi()
@@ -62,4 +71,96 @@ tasks.register("sourcesJar", Jar) {
 
 artifacts {
     archives tasks.named("sourcesJar")
+}
+
+mavenPublishing {
+    configure(new com.vanniktech.maven.publish.KotlinJvm(
+            new com.vanniktech.maven.publish.JavadocJar.Empty(),
+            new com.vanniktech.maven.publish.SourcesJar.Sources()
+    ))
+    publishToMavenCentral()
+
+    def requestedCentralPublish = gradle.startParameter.taskNames.any { taskName ->
+        taskName.toLowerCase(Locale.ROOT).contains("mavencentral")
+    }
+    def hasSigningConfig = providers.gradleProperty("signingInMemoryKey").isPresent() ||
+            providers.gradleProperty("signingInMemoryKeyFile").isPresent() ||
+            providers.gradleProperty("signing.secretKeyRingFile").isPresent()
+    if (requestedCentralPublish || hasSigningConfig) {
+        signAllPublications()
+    }
+
+    pom {
+        name = providers.gradleProperty("POM_NAME").orElse("JarFilterPlugin").get()
+        description = providers.gradleProperty("POM_DESCRIPTION")
+                .orElse("A Gradle plugin for filtering files inside Android dependency jars.").get()
+        inceptionYear = providers.gradleProperty("POM_INCEPTION_YEAR").orElse("2018").get()
+        url = providers.gradleProperty("POM_URL").orElse("https://github.com/shubowen/JarFilterPlugin").get()
+        licenses {
+            license {
+                name = providers.gradleProperty("POM_LICENSE_NAME")
+                        .orElse("The Apache License, Version 2.0").get()
+                url = providers.gradleProperty("POM_LICENSE_URL")
+                        .orElse("https://www.apache.org/licenses/LICENSE-2.0.txt").get()
+                distribution = providers.gradleProperty("POM_LICENSE_DIST").orElse("repo").get()
+            }
+        }
+        developers {
+            developer {
+                id = providers.gradleProperty("POM_DEVELOPER_ID").orElse("shubowen").get()
+                name = providers.gradleProperty("POM_DEVELOPER_NAME").orElse("shubowen").get()
+                url = providers.gradleProperty("POM_DEVELOPER_URL").orElse("https://github.com/shubowen").get()
+            }
+        }
+        scm {
+            url = providers.gradleProperty("POM_SCM_URL").orElse("https://github.com/shubowen/JarFilterPlugin").get()
+            connection = providers.gradleProperty("POM_SCM_CONNECTION")
+                    .orElse("scm:git:https://github.com/shubowen/JarFilterPlugin.git").get()
+            developerConnection = providers.gradleProperty("POM_SCM_DEV_CONNECTION")
+                    .orElse("scm:git:ssh://git@github.com/shubowen/JarFilterPlugin.git").get()
+        }
+    }
+}
+
+publishing {
+    publications.withType(org.gradle.api.publish.maven.MavenPublication).configureEach {
+        artifactId = publishedArtifactId.get()
+    }
+}
+
+signing {
+    def inMemoryKeyFile = providers.gradleProperty("signingInMemoryKeyFile")
+    if (!providers.gradleProperty("signingInMemoryKey").isPresent() && inMemoryKeyFile.isPresent()) {
+        useInMemoryPgpKeys(
+                file(inMemoryKeyFile.get()).text,
+                providers.gradleProperty("signingInMemoryKeyPassword").orNull
+        )
+    }
+}
+
+tasks.register("checkMavenCentralPublishingConfig") {
+    doLast {
+        def missing = []
+        if (!providers.gradleProperty("mavenCentralUsername").isPresent()) {
+            missing += "mavenCentralUsername"
+        }
+        if (!providers.gradleProperty("mavenCentralPassword").isPresent()) {
+            missing += "mavenCentralPassword"
+        }
+        if (!providers.gradleProperty("signingInMemoryKey").isPresent() &&
+                !providers.gradleProperty("signingInMemoryKeyFile").isPresent() &&
+                !providers.gradleProperty("signing.secretKeyRingFile").isPresent()) {
+            missing += "signingInMemoryKey, signingInMemoryKeyFile, or signing.secretKeyRingFile"
+        }
+        if (!missing.isEmpty()) {
+            throw new GradleException("Missing Maven Central publishing configuration: ${missing.join(', ')}. " +
+                    "Put secrets in ~/.gradle/gradle.properties or ORG_GRADLE_PROJECT_* environment variables.")
+        }
+    }
+}
+
+tasks.matching { task ->
+    task.name == "publishToMavenCentral" || task.name == "publishAndReleaseToMavenCentral"
+}.configureEach {
+    dependsOn(tasks.named("checkMavenCentralPublishingConfig"))
 }
