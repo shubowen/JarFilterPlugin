@@ -20,7 +20,6 @@ import com.android.build.gradle.AppPlugin
 import com.android.build.gradle.LibraryPlugin
 import org.gradle.api.NamedDomainObjectContainer
 import org.gradle.api.Plugin
-import org.gradle.api.internal.project.DefaultProject
 import org.gradle.api.plugins.JavaLibraryPlugin
 import org.gradle.testfixtures.ProjectBuilder
 import org.junit.Rule
@@ -43,7 +42,7 @@ class JarFilterPluginTest {
             val e = try {
                 val project = ProjectBuilder.builder()
                         .withName("test")
-                        .build() as DefaultProject
+                        .build()
                 project.plugins.apply(pluginClass)
                 project.plugins.apply(JarFilterPlugin::class.java)
                 null
@@ -53,7 +52,7 @@ class JarFilterPluginTest {
             }
 
             assertTrue {
-                val failed = (e?.cause is UnsupportedOperationException)
+                val failed = e is UnsupportedOperationException || e?.cause is UnsupportedOperationException
                 failed != expectedSuccess
             }
         }
@@ -68,7 +67,7 @@ class JarFilterPluginTest {
         val project = ProjectBuilder.builder()
                 .withProjectDir(tmpFolder.newFolder("test"))
                 .withName("example")
-                .build() as DefaultProject
+                .build()
 
         project.plugins.apply(AppPlugin::class.java)
         project.plugins.apply(JarFilterPlugin::class.java)
