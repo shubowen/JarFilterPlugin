@@ -32,6 +32,7 @@ repositories {
 }
 
 apply plugin: "org.jetbrains.kotlin.jvm"
+apply plugin: "java-gradle-plugin"
 apply plugin: "signing"
 apply plugin: "com.vanniktech.maven.publish"
 
@@ -49,6 +50,7 @@ tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
 def publishedGroup = providers.gradleProperty("GROUP").orElse("io.github.shubowen")
 def publishedArtifactId = providers.gradleProperty("POM_ARTIFACT_ID").orElse("JarFilterPlugin")
 def publishedVersion = providers.gradleProperty("VERSION_NAME").orElse("2.5.0-SNAPSHOT")
+def publishedPluginId = providers.gradleProperty("PLUGIN_ID").orElse("io.github.shubowen.jar-filter")
 
 group = publishedGroup.get()
 version = publishedVersion.get()
@@ -63,6 +65,18 @@ dependencies {
     implementation "com.android.tools.build:gradle:9.2.1"
 }
 
+gradlePlugin {
+    plugins {
+        jarFilter {
+            id = publishedPluginId.get()
+            implementationClass = "cn.nekocode.jarfilter.JarFilterPlugin"
+            displayName = providers.gradleProperty("POM_NAME").orElse("JarFilterPlugin").get()
+            description = providers.gradleProperty("POM_DESCRIPTION")
+                    .orElse("A Gradle plugin for filtering files inside Android dependency jars.").get()
+        }
+    }
+}
+
 // build a jar with source files
 tasks.register("sourcesJar", Jar) {
     from sourceSets.main.java.srcDirs
@@ -74,7 +88,7 @@ artifacts {
 }
 
 mavenPublishing {
-    configure(new com.vanniktech.maven.publish.KotlinJvm(
+    configure(new com.vanniktech.maven.publish.GradlePlugin(
             new com.vanniktech.maven.publish.JavadocJar.Empty(),
             new com.vanniktech.maven.publish.SourcesJar.Sources()
     ))
@@ -124,7 +138,9 @@ mavenPublishing {
 
 publishing {
     publications.withType(org.gradle.api.publish.maven.MavenPublication).configureEach {
-        artifactId = publishedArtifactId.get()
+        if (name == "maven" || name == "pluginMaven") {
+            artifactId = publishedArtifactId.get()
+        }
     }
 }
 

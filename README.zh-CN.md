@@ -8,26 +8,26 @@ JarFilterPlugin 可以在 Android 构建把依赖 jar 打进 DEX 之前，从 ja
 
 这个插件适合这样的场景：你只想替换第三方依赖中的少量 class，不想把整个依赖源码拉进项目。做法是把需要替换的源码复制到当前项目中，再用 JarFilterPlugin 从原始 jar 里移除对应 class，最后构建产物会使用你项目里重新编译出来的 class。
 
-完整用法可以参考 [example](example) 模块。插件 id 是 `jar-filter`。
+完整用法可以参考 [example](example) 模块。`plugins {}` DSL 使用的插件 id 是 `io.github.shubowen.jar-filter`。
 
 ## 集成方式
 
 ```gradle
-buildscript {
+pluginManagement {
     repositories {
         google()
         mavenCentral()
-    }
-    dependencies {
-        classpath "io.github.shubowen:JarFilterPlugin:2.5.0"
+        gradlePluginPortal()
     }
 }
 ```
 
-应用并配置插件：
+在模块的 `build.gradle` 中应用并配置插件：
 
 ```gradle
-apply plugin: "jar-filter"
+plugins {
+    id "io.github.shubowen.jar-filter" version "2.5.0"
+}
 
 jarFilters {
     "com.android.support:appcompat-v7:(.*)" {
@@ -45,6 +45,8 @@ jarFilters {
     }
 }
 ```
+
+如果仍使用旧的 `buildscript` classpath 方式引入插件，原来的 `jar-filter` 插件 id 仍然可用。
 
 ## 构建验证
 
@@ -64,6 +66,7 @@ Maven Central 发布坐标配置为：
 
 ```text
 io.github.shubowen:JarFilterPlugin:2.5.0-SNAPSHOT
+io.github.shubowen.jar-filter:io.github.shubowen.jar-filter.gradle.plugin:2.5.0-SNAPSHOT
 ```
 
 发布前需要先在 Central Portal 创建并验证 `io.github.shubowen` namespace，然后把 Central user token 和签名配置放到 `~/.gradle/gradle.properties`，或使用等价的 `ORG_GRADLE_PROJECT_*` 环境变量：

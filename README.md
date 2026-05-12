@@ -10,26 +10,26 @@ need to replace a small number of classes from a third-party dependency without
 vendoring the whole dependency source tree.
 
 See the [example](example) module for a complete Android application setup. The
-plugin id is `jar-filter`.
+plugin id for the `plugins {}` DSL is `io.github.shubowen.jar-filter`.
 
 ## Integration
 
 ```gradle
-buildscript {
+pluginManagement {
     repositories {
         google()
         mavenCentral()
-    }
-    dependencies {
-        classpath "io.github.shubowen:JarFilterPlugin:2.5.0"
+        gradlePluginPortal()
     }
 }
 ```
 
-Apply and configure the plugin:
+Apply and configure the plugin in the module `build.gradle`:
 
 ```gradle
-apply plugin: "jar-filter"
+plugins {
+    id "io.github.shubowen.jar-filter" version "2.5.0"
+}
 
 jarFilters {
     "com.android.support:appcompat-v7:(.*)" {
@@ -47,6 +47,10 @@ jarFilters {
     }
 }
 ```
+
+The legacy `jar-filter` plugin id is still available when the plugin is added
+through the older `buildscript` classpath style.
+
 ## Build verification
 
 This project is verified against Android Gradle Plugin `9.2.1` with a complete Android build environment in GitHub Actions. The workflow provisions JDK 17, the Android SDK, API 36, Build Tools 36.0.0, and then runs:
@@ -65,6 +69,7 @@ The Maven Central publication is configured for:
 
 ```text
 io.github.shubowen:JarFilterPlugin:2.5.0-SNAPSHOT
+io.github.shubowen.jar-filter:io.github.shubowen.jar-filter.gradle.plugin:2.5.0-SNAPSHOT
 ```
 
 Before publishing, create and verify the `io.github.shubowen` namespace in the
