@@ -23,6 +23,7 @@ import com.android.build.gradle.AppPlugin
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.artifacts.component.ModuleComponentIdentifier
+import org.gradle.api.artifacts.type.ArtifactTypeDefinition
 
 /**
  * Debug: ./gradlew :e:build -Dorg.gradle.daemon=false -Dorg.gradle.debug=true
@@ -55,17 +56,26 @@ class JarFilterPlugin : Plugin<Project> {
                 val filterTask = project.tasks.register("${variant.name}JarFilter", JarFilterTransform::class.java) { task ->
                     task.dependsOn(updateTask)
                     task.configFile.set(project.layout.buildDirectory.file(UpdateConfigTask.CONFIG_FILE_NAME))
-                    task.artifactNames.set(variant.runtimeConfiguration.incoming.artifacts.resolvedArtifacts.map { artifacts ->
-                        artifacts.map { artifact ->
+                    val classArtifacts = variant.runtimeConfiguration.incoming.artifactView { view ->
+                        view.componentFilter { componentIdentifier ->
+                            componentIdentifier is ModuleComponentIdentifier
+                        }
+                        view.attributes { attributes ->
+                            attributes.attribute(
+                                    ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE,
+                                    "android-classes-jar")
+                        }
+                    }.artifacts.resolvedArtifacts
+
+                    task.artifactNames.set(classArtifacts.map { artifacts ->
+                        artifacts.filter { artifact ->
+                            artifact.file.isFile && artifact.file.extension == "jar"
+                        }.associate { artifact ->
                             val file = artifact.file
-                            val componentIdentifier = artifact.id.componentIdentifier
-                            val displayName = if (componentIdentifier is ModuleComponentIdentifier) {
-                                "${componentIdentifier.group}:${componentIdentifier.module}:${componentIdentifier.version}"
-                            } else {
-                                componentIdentifier.displayName
-                            }
-                            file.absolutePath to displayName
-                        }.toMap()
+                            val componentIdentifier = artifact.id.componentIdentifier as ModuleComponentIdentifier
+                            file.absolutePath to
+                                    "${componentIdentifier.group}:${componentIdentifier.module}:${componentIdentifier.version}"
+                        }
                     })
                 }
 

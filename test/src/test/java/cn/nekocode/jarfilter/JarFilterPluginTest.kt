@@ -94,4 +94,17 @@ class JarFilterPluginTest {
         updateConfigTask.update()
         assertEquals(configText, configFile.readText())
     }
+
+    @Test
+    fun testArtifactNamesUseExternalClassJarArtifactView() {
+        val source = File("../buildSrc/src/main/java/cn/nekocode/jarfilter/JarFilterPlugin.kt")
+                .readText()
+
+        assertTrue { "incoming.artifacts.resolvedArtifacts" !in source }
+        assertTrue { "incoming.artifactView" in source }
+        assertTrue { "componentFilter" in source }
+        assertTrue { "ModuleComponentIdentifier" in source }
+        assertTrue { "ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE" in source }
+        assertTrue { "\"android-classes-jar\"" in source }
+    }
 }

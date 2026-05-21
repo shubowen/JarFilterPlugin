@@ -28,7 +28,7 @@ Apply and configure the plugin in the module `build.gradle`:
 
 ```gradle
 plugins {
-    id "io.github.shubowen.jar-filter" version "2.5.0"
+    id "io.github.shubowen.jar-filter" version "2.5.1"
 }
 
 jarFilters {
@@ -68,8 +68,8 @@ You can also trigger the same check manually from the `AGP 9 Compile Verificatio
 The Maven Central publication is configured for:
 
 ```text
-io.github.shubowen:JarFilterPlugin:2.5.0-SNAPSHOT
-io.github.shubowen.jar-filter:io.github.shubowen.jar-filter.gradle.plugin:2.5.0-SNAPSHOT
+io.github.shubowen:JarFilterPlugin:2.5.1
+io.github.shubowen.jar-filter:io.github.shubowen.jar-filter.gradle.plugin:2.5.1
 ```
 
 Before publishing, create and verify the `io.github.shubowen` namespace in the
@@ -93,7 +93,7 @@ The local publishing configuration used on this machine is stored at:
 Do not commit this file. It contains the Maven Central token, signing password,
 and local signing configuration.
 
-Use a snapshot version for validation:
+Upload to Maven Central without automatically releasing:
 
 ```bash
 ./gradlew :buildSrc:publishToMavenCentral
@@ -103,5 +103,5 @@ Use an explicit release version when publishing an immutable Maven Central
 release:
 
 ```bash
-./gradlew :buildSrc:publishAndReleaseToMavenCentral -PVERSION_NAME=2.5.0
+./gradlew :buildSrc:publishAndReleaseToMavenCentral -PVERSION_NAME=2.5.1
 ```
