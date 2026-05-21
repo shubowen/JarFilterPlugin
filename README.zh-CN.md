@@ -26,7 +26,7 @@ pluginManagement {
 
 ```gradle
 plugins {
-    id "io.github.shubowen.jar-filter" version "2.5.0"
+    id "io.github.shubowen.jar-filter" version "2.5.1"
 }
 
 jarFilters {
@@ -65,8 +65,8 @@ jarFilters {
 Maven Central 发布坐标配置为：
 
 ```text
-io.github.shubowen:JarFilterPlugin:2.5.0-SNAPSHOT
-io.github.shubowen.jar-filter:io.github.shubowen.jar-filter.gradle.plugin:2.5.0-SNAPSHOT
+io.github.shubowen:JarFilterPlugin:2.5.1
+io.github.shubowen.jar-filter:io.github.shubowen.jar-filter.gradle.plugin:2.5.1
 ```
 
 发布前需要先在 Central Portal 创建并验证 `io.github.shubowen` namespace，然后把 Central user token 和签名配置放到 `~/.gradle/gradle.properties`，或使用等价的 `ORG_GRADLE_PROJECT_*` 环境变量：
@@ -86,7 +86,7 @@ signingInMemoryKeyPassword=...
 
 不要提交这个文件。它包含 Maven Central token、签名密码和本地签名配置。
 
-使用 snapshot 版本做发布验证：
+上传到 Maven Central 但不自动 release：
 
 ```bash
 ./gradlew :buildSrc:publishToMavenCentral
@@ -95,5 +95,5 @@ signingInMemoryKeyPassword=...
 发布不可变的 Maven Central release 时显式指定 release 版本：
 
 ```bash
-./gradlew :buildSrc:publishAndReleaseToMavenCentral -PVERSION_NAME=2.5.0
+./gradlew :buildSrc:publishAndReleaseToMavenCentral -PVERSION_NAME=2.5.1
 ```

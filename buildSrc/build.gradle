@@ -49,7 +49,7 @@ tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
 
 def publishedGroup = providers.gradleProperty("GROUP").orElse("io.github.shubowen")
 def publishedArtifactId = providers.gradleProperty("POM_ARTIFACT_ID").orElse("JarFilterPlugin")
-def publishedVersion = providers.gradleProperty("VERSION_NAME").orElse("2.5.0-SNAPSHOT")
+def publishedVersion = providers.gradleProperty("VERSION_NAME").orElse("2.5.1")
 def publishedPluginId = providers.gradleProperty("PLUGIN_ID").orElse("io.github.shubowen.jar-filter")
 
 group = publishedGroup.get()
